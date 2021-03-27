@@ -286,6 +286,11 @@ The following command is available when a
   printer is not printing as it will reset the idle timeout. If careful
   timing is not needed, the optional SYNC=0 parameter can be specified to
   apply the changes instantly and not reset the idle timeout.
+  `SET_LED_HSI LED=<config_name> HUE=<value> SATURATION=<value>
+  INTENSITY=<value> [INDEX=<index>] [TRANSMIT=0] [SYNC=1]`: This sets the
+  LED output using the HSI colorspace. HUE must be between 0.0 and 360.0,
+  SATURATION and INTENSITY must be between 0.0 and 1.0. Otherwise
+  functions the same as `SET_LED`
 
 ## Servo Commands
 
