@@ -4,13 +4,14 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import logging
+import math
 
 BACKGROUND_PRIORITY_CLOCK = 0x7fffffff00000000
 
 BIT_MAX_TIME=.000004
 RESET_MIN_TIME=.000050
 
-MAX_MCU_SIZE = 500  # Sanity check on LED chain length
+MAX_MCU_SIZE = 600  # Sanity check on LED chain length
 
 class PrinterNeoPixel:
     def __init__(self, config):
@@ -45,6 +46,9 @@ class PrinterNeoPixel:
         gcode = self.printer.lookup_object('gcode')
         gcode.register_mux_command("SET_LED", "LED", name, self.cmd_SET_LED,
                                    desc=self.cmd_SET_LED_help)
+        gcode.register_mux_command("SET_LED_HSI", "LED", name,
+                                   self.cmd_SET_LED_HSI,
+                                   desc=self.cmd_SET_LED_HSI_help)
     def build_config(self):
         bmt = self.mcu.seconds_to_clock(BIT_MAX_TIME)
         rmt = self.mcu.seconds_to_clock(RESET_MIN_TIME)
@@ -110,15 +114,7 @@ class PrinterNeoPixel:
                 break
         else:
             logging.info("Neopixel update did not succeed")
-    cmd_SET_LED_help = "Set the color of an LED"
-    def cmd_SET_LED(self, gcmd):
-        # Parse parameters
-        red = gcmd.get_float('RED', 0., minval=0., maxval=1.)
-        green = gcmd.get_float('GREEN', 0., minval=0., maxval=1.)
-        blue = gcmd.get_float('BLUE', 0., minval=0., maxval=1.)
-        white = gcmd.get_float('WHITE', 0., minval=0., maxval=1.)
-        index = gcmd.get_int('INDEX', None, minval=1, maxval=self.chain_count)
-        transmit = gcmd.get_int('TRANSMIT', 1)
+    def set_leds(self, red, green, blue, white, index, transmit):
         # Update and transmit data
         def reactor_bgfunc(print_time):
             with self.mutex:
@@ -130,6 +126,58 @@ class PrinterNeoPixel:
             reactor.register_callback(lambda et: reactor_bgfunc(print_time))
         toolhead = self.printer.lookup_object('toolhead')
         toolhead.register_lookahead_callback(lookahead_bgfunc)
+
+    cmd_SET_LED_help = "Set the color of an LED"
+    def cmd_SET_LED(self, gcmd):
+        # Parse parameters
+        red = gcmd.get_float('RED', 0., minval=0., maxval=1.)
+        green = gcmd.get_float('GREEN', 0., minval=0., maxval=1.)
+        blue = gcmd.get_float('BLUE', 0., minval=0., maxval=1.)
+        white = gcmd.get_float('WHITE', 0., minval=0., maxval=1.)
+        index = gcmd.get_int('INDEX', None, minval=1, maxval=self.chain_count)
+        transmit = gcmd.get_int('TRANSMIT', 1)
+        self.set_leds(red, green, blue, white, index, transmit)
+
+    cmd_SET_LED_HSI_help = "Set the color of an LED using HSI"
+    def cmd_SET_LED_HSI(self, gcmd):
+        # Parse parameters
+        hue = gcmd.get_float("HUE", 0., minval=0., maxval=360.)
+        saturation = gcmd.get_float("SATURATION", 0., minval=0., maxval=1.)
+        intensity = gcmd.get_float("INTENSITY", 0., minval=0., maxval=1.)
+        index = gcmd.get_int('INDEX', None, minval=1, maxval=self.chain_count)
+        transmit = gcmd.get_int('TRANSMIT', 1)
+
+        red = blue = green = 0.
+        white = 255 * (1 - saturation) * intensity
+
+        hue = math.fmod(hue, 360)
+        hue = 3.14159 * hue / 180.
+        color_multiplier = saturation * 255 * intensity / 3
+        if hue < 2.09439:
+            cos_hue = math.cos(hue)
+            cos_1047_hue = math.cos(1.047196667 - hue)
+            red = color_multiplier * (1 + cos_hue / cos_1047_hue)
+            green = color_multiplier * (1 + (1 - cos_hue / cos_1047_hue))
+            if len(self.color_order) < 4:
+                blue = white
+        elif hue < 4.188787:
+            hue = hue - 2.09439
+            cos_hue = math.cos(hue)
+            cos_1047_hue = math.cos(1.047196667 - hue)
+            green = color_multiplier * (1 + cos_hue / cos_1047_hue)
+            blue = color_multiplier * (1 + (1 - cos_hue / cos_1047_hue))
+            if len(self.color_order) < 4:
+                red = white
+        else:
+            hue = hue - 4.188787
+            cos_hue = math.cos(hue)
+            cos_1047_hue = math.cos(1.047196667 - hue)
+            blue = color_multiplier * (1 + cos_hue / cos_1047_hue)
+            red = color_multiplier * (1 + (1 - cos_hue / cos_1047_hue))
+            if len(self.color_order) < 4:
+                green = white
+        self.set_leds(red/255., green/255., blue/255., white/255., index,
+                      transmit)
 
 def load_config_prefix(config):
     return PrinterNeoPixel(config)

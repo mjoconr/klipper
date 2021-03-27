@@ -282,6 +282,11 @@ The following command is available when a
   change will only be made on the next SET_LED command that does not
   specify TRANSMIT=0; this may be useful in combination with the INDEX
   parameter to batch multiple updates in a daisy-chain.
+- `SET_LED_HSI LED=<config_name> HUE=<value> SATURATION=<value>
+  INTENSITY=<value> [INDEX=<index>] [TRANSMIT=0]`: This sets the LED
+  output using the HSI colorspace. HUE must be between 0.0 and 360.0,
+  SATURATION and INTENSITY must be between 0.0 and 1.0. Otherwise
+  functions the same as `SET_LED`
 
 ## Servo Commands
 
