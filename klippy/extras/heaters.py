@@ -176,17 +176,17 @@ class ControlPID:
     def __init__(self, heater, config):
         self.heater = heater
         self.heater_max_power = heater.get_max_power()
-        self.Kp = config.getfloat('pid_Kp') / PID_PARAM_BASE
-        self.Ki = config.getfloat('pid_Ki') / PID_PARAM_BASE
-        self.Kd = config.getfloat('pid_Kd') / PID_PARAM_BASE
-        self.min_deriv_time = heater.get_smooth_time()
-        self.temp_integ_max = 0.
-        if self.Ki:
-            self.temp_integ_max = self.heater_max_power / self.Ki
+        self.set_pid_settings(config.getfloat('pid_Kp'),
+                              config.getfloat('pid_Ki'),
+                              config.getfloat('pid_Kd'))
         self.prev_temp = AMBIENT_TEMP
         self.prev_temp_time = 0.
         self.prev_temp_deriv = 0.
         self.prev_temp_integ = 0.
+        gcode = self.heater.printer.lookup_object("gcode")
+        gcode.register_mux_command("SET_HEATER_PID", "HEATER",
+                                   self.heater.name, self.cmd_SET_HEATER_PID,
+                                   desc=self.cmd_SET_HEATER_PID_help)
     def temperature_update(self, read_time, temp, target_temp):
         time_diff = read_time - self.prev_temp_time
         # Calculate change of temperature
@@ -216,7 +216,19 @@ class ControlPID:
         temp_diff = target_temp - smoothed_temp
         return (abs(temp_diff) > PID_SETTLE_DELTA
                 or abs(self.prev_temp_deriv) > PID_SETTLE_SLOPE)
-
+    def set_pid_settings(self, kp, ki, kd):
+        self.Kp = kp / PID_PARAM_BASE
+        self.Ki = ki / PID_PARAM_BASE
+        self.Kd = kd / PID_PARAM_BASE
+        self.min_deriv_time = self.heater.get_smooth_time()
+        self.temp_integ_max = 0.
+        if self.Ki:
+            self.temp_integ_max = self.heater_max_power / self.Ki
+        self.prev_temp_integ = 0.
+    cmd_SET_HEATER_PID_help = "Sets the heater's PID calibration settings"
+    def cmd_SET_HEATER_PID(self, gcmd):
+        self.set_pid_settings(gcmd.get_float('P'), gcmd.get_float('I'),
+                              gcmd.get_float('D'))
 
 ######################################################################
 # Sensor and heater lookup
