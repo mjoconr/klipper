@@ -167,6 +167,10 @@ The following standard commands are supported:
 - `SET_HEATER_TEMPERATURE HEATER=<heater_name> [TARGET=<target_temperature>]`:
   Sets the target temperature for a heater. If a target temperature is
   not supplied, the target is 0.
+- `SET_HEATER_MAX_TEMPERATURE HEATER=<heater_name>
+  [MAX_TEMPERATURE=<max_temperature>]`: Modify the heater's max temperature.
+  Useful for machines with hot-swappable extruders with different temperature
+  limits.
 - `ACTIVATE_EXTRUDER EXTRUDER=<config_name>`: In a printer with
   multiple extruders this command is used to change the active
   extruder.

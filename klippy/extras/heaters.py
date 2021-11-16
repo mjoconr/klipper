@@ -22,7 +22,8 @@ class Heater:
         # Setup sensor
         self.sensor = sensor
         self.min_temp = config.getfloat('min_temp', minval=KELVIN_TO_CELSIUS)
-        self.max_temp = config.getfloat('max_temp', above=self.min_temp)
+        self.max_temp = self.config_max_temp = config.getfloat(
+            'max_temp', above=self.min_temp)
         self.sensor.setup_minmax(self.min_temp, self.max_temp)
         self.sensor.setup_callback(self.temperature_callback)
         self.pwm_delay = self.sensor.get_report_time_delta()
@@ -61,6 +62,10 @@ class Heater:
         gcode.register_mux_command("SET_HEATER_TEMPERATURE", "HEATER",
                                    self.name, self.cmd_SET_HEATER_TEMPERATURE,
                                    desc=self.cmd_SET_HEATER_TEMPERATURE_help)
+        gcode.register_mux_command(
+            "SET_HEATER_MAX_TEMPERATURE", "HEATER", self.name,
+            self.cmd_SET_HEATER_MAX_TEMPERATURE,
+            desc=self.cmd_SET_HEATER_MAX_TEMPERATURE_help)
     def set_pwm(self, read_time, value):
         if self.target_temp <= 0.:
             value = 0.
@@ -140,7 +145,13 @@ class Heater:
         temp = gcmd.get_float('TARGET', 0.)
         pheaters = self.printer.lookup_object('heaters')
         pheaters.set_temperature(self, temp)
-
+    cmd_SET_HEATER_MAX_TEMPERATURE_help = "Sets a heaters max temperature"
+    def cmd_SET_HEATER_MAX_TEMPERATURE(self, gcmd):
+        max_temp = gcmd.get_float('MAX_TEMPERATURE', self.config_max_temp)
+        pheaters = self.printer.lookup_object('heaters')
+        self.max_temp = max_temp
+        if self.target_temp > self.max_temp:
+            self.set_temp(self.max_temp)
 
 ######################################################################
 # Bang-bang control algo
